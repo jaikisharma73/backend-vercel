@@ -20,7 +20,10 @@ app.use(express.json());
 
 if (!process.env.GEMINI_API_KEY) {
   console.error("❌ GEMINI_API_KEY missing");
-  process.exit(1);
+  if (!process.env.GEMINI_API_KEY) {
+  console.error("❌ GEMINI_API_KEY missing");
+}
+
 }
 
 // ✅ Correct Gemini client
@@ -79,8 +82,4 @@ ${prompt}
   }
 });
 
-const PORT = process.env.PORT || 5000;
-
-app.listen(PORT, () => {
-  console.log(`✅ Backend running on port ${PORT}`);
-});
+export default app;
