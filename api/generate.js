@@ -20,22 +20,16 @@ app.use(express.json());
 
 if (!process.env.GEMINI_API_KEY) {
   console.error("❌ GEMINI_API_KEY missing");
-  if (!process.env.GEMINI_API_KEY) {
-  console.error("❌ GEMINI_API_KEY missing");
 }
 
-}
-
-// ✅ Correct Gemini client
 const genAI = new GoogleGenAI(process.env.GEMINI_API_KEY);
 
-app.post("/generate", async (req, res) => {
+// ✅ Route should be "/"
+app.post("/", async (req, res) => {
   try {
     const { prompt, framework } = req.body;
 
-    if (!prompt) {
-      return res.status(400).json({ error: "Prompt is required" });
-    }
+    if (!prompt) return res.status(400).json({ error: "Prompt is required" });
 
     const fullPrompt = `
 Generate a complete ${framework} UI component.
@@ -57,25 +51,19 @@ ${prompt}
         model: "models/gemini-2.5-flash",
         contents: [{ role: "user", parts: [{ text: fullPrompt }] }],
       });
-
       result = response.candidates?.[0]?.content?.parts?.[0]?.text;
     } catch (e) {
       console.log("⚠ Flash failed → switching to Pro");
-
       const response = await genAI.models.generateContent({
         model: "models/gemini-2.5-pro",
         contents: [{ role: "user", parts: [{ text: fullPrompt }] }],
       });
-
       result = response.candidates?.[0]?.content?.parts?.[0]?.text;
     }
 
-    if (!result) {
-      return res.status(500).json({ error: "No output from Gemini" });
-    }
+    if (!result) return res.status(500).json({ error: "No output from Gemini" });
 
     res.json({ result });
-
   } catch (error) {
     console.error("🔥 Gemini Error:", error);
     res.status(500).json({ error: "AI service failed" });
