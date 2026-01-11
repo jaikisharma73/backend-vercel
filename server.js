@@ -6,7 +6,16 @@ import { GoogleGenAI } from "@google/genai";
 dotenv.config();
 
 const app = express();
-app.use(cors());
+
+app.use(cors({
+  origin: [
+    "http://localhost:5173",
+    "https://vercel-frontend-ivory.vercel.app",
+  ],
+  methods: ["GET", "POST"],
+  credentials: true,
+}));
+
 app.use(express.json());
 
 if (!process.env.GEMINI_API_KEY) {
@@ -14,9 +23,8 @@ if (!process.env.GEMINI_API_KEY) {
   process.exit(1);
 }
 
-const genAI = new GoogleGenAI({
-  apiKey: process.env.GEMINI_API_KEY,
-});
+// ✅ Correct Gemini client
+const genAI = new GoogleGenAI(process.env.GEMINI_API_KEY);
 
 app.post("/generate", async (req, res) => {
   try {
@@ -27,39 +35,37 @@ app.post("/generate", async (req, res) => {
     }
 
     const fullPrompt = `
-Generate a complete HTML page for a ${framework} UI component.
+Generate a complete ${framework} UI component.
 
 Rules:
 - Include <!DOCTYPE html>, <html>, <head>, <body>
-- Add all CSS inside <style> or CDN (Tailwind/Bootstrap)
-- Return ONLY full HTML
+- Include all CSS inside <style> or CDN
+- Return ONLY raw HTML
 - No markdown, no explanation
 
 User request:
 ${prompt}
 `;
 
-    async function callGemini(model) {
-      return await genAI.models.generateContent({
-        model,
-        contents: [
-          { role: "user", parts: [{ text: fullPrompt }] }
-        ],
-      });
-    }
-
-    let response;
+    let result;
 
     try {
-      // fast model
-      response = await callGemini("gemini-2.5-flash");
-    } catch (e) {
-      console.log("⚠ Flash overloaded → switching to Pro");
-      response = await callGemini("gemini-2.5-pro");
-    }
+      const response = await genAI.models.generateContent({
+        model: "models/gemini-2.5-flash",
+        contents: [{ role: "user", parts: [{ text: fullPrompt }] }],
+      });
 
-    const result =
-      response.candidates?.[0]?.content?.parts?.[0]?.text || "";
+      result = response.candidates?.[0]?.content?.parts?.[0]?.text;
+    } catch (e) {
+      console.log("⚠ Flash failed → switching to Pro");
+
+      const response = await genAI.models.generateContent({
+        model: "models/gemini-2.5-pro",
+        contents: [{ role: "user", parts: [{ text: fullPrompt }] }],
+      });
+
+      result = response.candidates?.[0]?.content?.parts?.[0]?.text;
+    }
 
     if (!result) {
       return res.status(500).json({ error: "No output from Gemini" });
@@ -68,12 +74,13 @@ ${prompt}
     res.json({ result });
 
   } catch (error) {
-    console.error("🔥 Gemini Error:", error.message || error);
-    res.status(500).json({ error: "AI service temporarily unavailable" });
+    console.error("🔥 Gemini Error:", error);
+    res.status(500).json({ error: "AI service failed" });
   }
 });
 
 const PORT = process.env.PORT || 5000;
+
 app.listen(PORT, () => {
   console.log(`✅ Backend running on port ${PORT}`);
 });
