@@ -2,7 +2,7 @@
     "version": 2,
     "builds": [
         {
-            "src": "generate.js",
+            "src": "api/generate.js",
             "use": "@vercel/node",
             "config": {
                 "includeFiles": [
